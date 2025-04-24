@@ -13,7 +13,7 @@ interface BoardState {
   error: string | null;
   setCurrentBoard: (board: Board) => void;
   moveTask: (taskId: string, source: Column, destination: Column) => Promise<void>;
-  createBoard: (title: string, description?: string) => Promise<void>;
+  createBoard: (title: string, description?: string) => Promise<Board>;
   createTask: (columnId: string, taskData: Omit<Task, 'id'>) => Promise<void>;
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -51,8 +51,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       
       await setDoc(doc(db, 'boards', boardId), newBoard);
       set((state) => ({ boards: [...state.boards, newBoard] }));
+      return newBoard;
     } catch (error) {
       set({ error: (error as Error).message });
+      throw error;
     } finally {
       set({ loading: false });
     }

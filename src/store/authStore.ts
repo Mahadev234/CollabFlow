@@ -10,7 +10,8 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   sendEmailVerification,
-  reload
+  reload,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
@@ -37,6 +38,7 @@ interface AuthState {
   verifySecurityAnswer: (userId: string, answer: string) => Promise<boolean>;
   checkEmailVerification: () => Promise<boolean>;
   resendVerificationEmail: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const initializeDatabase = async () => {
@@ -228,6 +230,17 @@ export const useAuthStore = create<AuthState>((set) => {
         
         await sendEmailVerification(currentUser);
       } catch (error) {
+        throw error;
+      }
+    },
+
+    resetPassword: async (email: string) => {
+      set({ loading: true, error: null });
+      try {
+        await sendPasswordResetEmail(auth, email);
+        set({ loading: false });
+      } catch (error: any) {
+        set({ error: error.message, loading: false });
         throw error;
       }
     }
