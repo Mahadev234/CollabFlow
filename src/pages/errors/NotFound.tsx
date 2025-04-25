@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { RocketLaunchIcon, HomeIcon } from '@heroicons/react/24/outline';
-
+console.log("Not Found");
 export default function NotFound() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-indigo-900 flex items-center justify-center p-4">

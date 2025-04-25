@@ -2,8 +2,9 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   HomeIcon,
   ClipboardDocumentListIcon,
-  UserGroupIcon,
-  Cog6ToothIcon,
+  FolderIcon,
+  UsersIcon,
+  CogIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -19,30 +20,15 @@ export default function Sidebar() {
   }, [location.pathname]);
 
   const isActive = (path: string) => {
-    return location.pathname === path;
+    return location.pathname.startsWith(path);
   };
 
-  const navItems = [
-    {
-      name: 'Dashboard',
-      path: '/',
-      icon: HomeIcon,
-    },
-    {
-      name: 'Projects',
-      path: '/projects',
-      icon: ClipboardDocumentListIcon,
-    },
-    {
-      name: 'Team',
-      path: '/team',
-      icon: UserGroupIcon,
-    },
-    {
-      name: 'Settings',
-      path: '/settings',
-      icon: Cog6ToothIcon,
-    },
+  const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+    { name: 'Boards', href: '/boards', icon: ClipboardDocumentListIcon },
+    { name: 'Projects', href: '/projects', icon: FolderIcon },
+    { name: 'Team', href: '/team', icon: UsersIcon },
+    { name: 'Settings', href: '/settings', icon: CogIcon },
   ];
 
   return (
@@ -71,21 +57,21 @@ export default function Sidebar() {
           </Link>
         </div>
         <nav className="space-y-2 p-4">
-          {navItems.map((item) => {
+          {navigation.map((item) => {
             const Icon = item.icon;
             return (
               <Link
-                key={item.path}
-                to={item.path}
+                key={item.href}
+                to={item.href}
                 className={`group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
-                  isActive(item.path)
+                  isActive(item.href)
                     ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-600 shadow-sm'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
                 <Icon
                   className={`h-5 w-5 transition-colors ${
-                    isActive(item.path) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                    isActive(item.href) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
                   }`}
                 />
                 {item.name}
