@@ -1,4 +1,4 @@
-// src/pages/auth/Register.tsx
+// src/pages/Register.tsx
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';

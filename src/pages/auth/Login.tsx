@@ -22,7 +22,7 @@ export default function Login() {
       navigate('/dashboard');
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
-        navigate('/auth/register', { state: { email } });
+        navigate('/register', { state: { email } });
       } else if (error.code === 'auth/wrong-password') {
         setError('Incorrect password. Please try again.');
       } else if (error.code === 'auth/invalid-email') {
@@ -63,7 +63,7 @@ export default function Login() {
             <p className="mt-2 text-sm text-gray-600">
               Don't have an account?{' '}
               <Link
-                to="/auth/register"
+                to="/register"
                 className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
               >
                 Sign up
@@ -102,7 +102,7 @@ export default function Login() {
                     Password
                   </label>
                   <Link
-                    to="/auth/forgot-password"
+                    to="/forgot-password"
                     className="text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
                   >
                     Forgot password?

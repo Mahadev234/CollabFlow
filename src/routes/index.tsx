@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 import ProtectedRoute from '../components/common/ProtectedRoute';
 import AuthRoute from '../components/common/AuthRoute';
@@ -8,6 +8,7 @@ import Login from '../pages/auth/Login';
 import Register from '../pages/auth/Register';
 import VerifyEmail from '../pages/auth/VerifyEmail';
 import ForgotPassword from '../pages/auth/ForgotPassword';
+import ResetPassword from '../pages/auth/ResetPassword';
 
 // Error Pages
 import NotFound from '../pages/errors/NotFound';
@@ -24,80 +25,98 @@ import Help from '../pages/help/Help';
 import ProjectsList from '../pages/projects/ProjectsList';
 import CreateProject from '../pages/projects/CreateProject';
 
-export const AppRoutes = () => {
-  return (
-    <Routes>
-      {/* Auth Routes - Only accessible when not logged in */}
-      <Route
-        path="/auth"
-        element={
-          <AuthRoute>
-            <Routes>
-              <Route path="login" element={<Login />} />
-              <Route path="register" element={<Register />} />
-              <Route path="verify-email" element={<VerifyEmail />} />
-              <Route path="forgot-password" element={<ForgotPassword />} />
-              <Route path="*" element={<Navigate to="/auth/login" replace />} />
-            </Routes>
-          </AuthRoute>
-        }
-      />
+const router = createBrowserRouter([
+  {
+    path: '/auth',
+    element: <AuthRoute />,
+    children: [
+      { path: 'login', element: <Login /> },
+      { path: 'register', element: <Register /> },
+      { path: 'verify-email', element: <VerifyEmail /> },
+      { path: 'forgot-password', element: <ForgotPassword /> },
+      { path: 'reset-password', element: <ResetPassword /> },
+      { path: '*', element: <Login /> },
+    ],
+  },
+  {
+    path: '/error',
+    children: [
+      { path: '404', element: <NotFound /> },
+      { path: '500', element: <ServerError /> },
+      { path: '403', element: <Unauthorized /> },
+      { path: '*', element: <NotFound /> },
+    ],
+  },
+  {
+    path: '/',
+    element: (
+      <ProtectedRoute>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <Dashboard /> },
+      { path: 'dashboard', element: <Dashboard /> },
+      {
+        path: 'boards',
+        children: [
+          { path: ':boardId', element: <Board /> },
+          { path: '*', element: <Dashboard /> },
+        ],
+      },
+      {
+        path: 'projects',
+        children: [
+          { index: true, element: <ProjectsList /> },
+          { path: 'create', element: <CreateProject /> },
+          { path: '*', element: <ProjectsList /> },
+        ],
+      },
+      { path: 'profile', element: <Profile /> },
+      { path: 'settings', element: <Settings /> },
+      { path: 'notifications', element: <NotificationCenter /> },
+      { path: 'help', element: <Help /> },
+      { path: '*', element: <Dashboard /> },
+    ],
+  },
+  {
+    path: '/login',
+    element: <Login />,
+  },
+  {
+    path: '/register',
+    element: <Register />,
+  },
+  {
+    path: '/verify-email',
+    element: <VerifyEmail />,
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPassword />,
+  },
+  {
+    path: '/reset-password',
+    element: <ResetPassword />,
+  },
+  {
+    path: '/404',
+    element: <NotFound />,
+  },
+  {
+    path: '/500',
+    element: <ServerError />,
+  },
+  {
+    path: '/403',
+    element: <Unauthorized />,
+  },
+  {
+    path: '*',
+    element: <NotFound />,
+  },
+]);
 
-      {/* Error Routes - Accessible to all */}
-      <Route path="/error">
-        <Route path="404" element={<NotFound />} />
-        <Route path="500" element={<ServerError />} />
-        <Route path="403" element={<Unauthorized />} />
-        <Route path="*" element={<Navigate to="/error/404" replace />} />
-      </Route>
-
-      {/* Protected Routes - Only accessible when logged in */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
-        }
-      >
-        {/* Dashboard */}
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-
-        {/* Boards */}
-        <Route path="boards">
-          <Route path=":boardId" element={<Board />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Route>
-
-        {/* Projects */}
-        <Route path="projects">
-          <Route index element={<ProjectsList />} />
-          <Route path="create" element={<CreateProject />} />
-          <Route path="*" element={<Navigate to="/projects" replace />} />
-        </Route>
-
-        {/* User Related */}
-        <Route path="profile" element={<Profile />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="notifications" element={<NotificationCenter />} />
-        <Route path="help" element={<Help />} />
-
-        {/* Catch all for protected routes */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Route>
-
-      {/* Redirects */}
-      <Route path="/login" element={<Navigate to="/auth/login" replace />} />
-      <Route path="/register" element={<Navigate to="/auth/register" replace />} />
-      <Route path="/verify-email" element={<Navigate to="/auth/verify-email" replace />} />
-      <Route path="/forgot-password" element={<Navigate to="/auth/forgot-password" replace />} />
-      <Route path="/404" element={<Navigate to="/error/404" replace />} />
-      <Route path="/500" element={<Navigate to="/error/500" replace />} />
-      <Route path="/403" element={<Navigate to="/error/403" replace />} />
-
-      {/* Catch all unmatched routes */}
-      <Route path="*" element={<Navigate to="/error/404" replace />} />
-    </Routes>
-  );
-}; 
+export function AppRoutes() {
+  return <RouterProvider router={router} />;
+} 

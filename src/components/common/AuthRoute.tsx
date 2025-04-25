@@ -1,7 +1,7 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 
-export default function AuthRoute({ children }: { children: React.ReactNode }) {
+export default function AuthRoute() {
   const { user, loading } = useAuthStore();
   const location = useLocation();
 
@@ -21,5 +21,5 @@ export default function AuthRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/dashboard" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 } 

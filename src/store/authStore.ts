@@ -11,7 +11,8 @@ import {
   browserSessionPersistence,
   sendEmailVerification,
   reload,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  confirmPasswordReset
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
@@ -32,13 +33,16 @@ interface AuthState {
   error: string | null;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   signUp: (email: string, password: string, userData?: UserData) => Promise<void>;
-  signInWithGoogle: (rememberMe?: boolean) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   setUser: (user: any) => void;
   verifySecurityAnswer: (userId: string, answer: string) => Promise<boolean>;
   checkEmailVerification: () => Promise<boolean>;
   resendVerificationEmail: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
+  confirmPasswordReset: (oobCode: string, newPassword: string) => Promise<void>;
+  verifyEmail: () => Promise<void>;
+  reloadUser: () => Promise<void>;
 }
 
 const initializeDatabase = async () => {
@@ -77,19 +81,24 @@ const initializeDatabase = async () => {
 initializeDatabase();
 
 export const useAuthStore = create<AuthState>((set) => {
-  // Set up auth state listener
-  onAuthStateChanged(auth, async (user) => {
+  // Set up auth state listener only once when the store is created
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // Get additional user data from Firestore
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        set({ 
-          user: { ...user, ...userData },
-          loading: false,
-          error: null
-        });
-      } else {
+      try {
+        // Get additional user data from Firestore
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          set({ 
+            user: { ...user, ...userData },
+            loading: false,
+            error: null
+          });
+        } else {
+          set({ user, loading: false, error: null });
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
         set({ user, loading: false, error: null });
       }
     } else {
@@ -99,90 +108,38 @@ export const useAuthStore = create<AuthState>((set) => {
 
   return {
     user: null,
-    loading: true, // Start with loading true
+    loading: true,
     error: null,
-    
     signIn: async (email: string, password: string, rememberMe = false) => {
       set({ loading: true, error: null });
       try {
         await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        
-        // Check if email is verified
-        if (!userCredential.user.emailVerified) {
-          throw new Error('Please verify your email before signing in');
-        }
-        
-        // Get additional user data
-        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          set({ 
-            user: { ...userCredential.user, ...userData },
-            loading: false
-          });
-        } else {
-          set({ user: userCredential.user, loading: false });
-        }
+        await signInWithEmailAndPassword(auth, email, password);
       } catch (error: any) {
         set({ error: error.message, loading: false });
         throw error;
       }
     },
-    
     signUp: async (email: string, password: string, userData?: UserData) => {
       set({ loading: true, error: null });
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        
-        // Send email verification
-        await sendEmailVerification(userCredential.user);
+        const user = userCredential.user;
         
         if (userData) {
-          // Hash the security answer before storing
-          const securityAnswerHash = await bcrypt.hash(userData.securityAnswerHash, 10);
-          
-          // Store additional user data in Firestore
-          await setDoc(doc(db, 'users', userCredential.user.uid), {
-            email,
+          await setDoc(doc(db, 'users', user.uid), {
             ...userData,
-            securityAnswerHash,
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            emailVerified: false,
+            updatedAt: new Date().toISOString()
           });
         }
         
-        set({ user: userCredential.user, loading: false });
+        await sendEmailVerification(user);
       } catch (error: any) {
         set({ error: error.message, loading: false });
         throw error;
       }
     },
-
-    signInWithGoogle: async (rememberMe = false) => {
-      set({ loading: true, error: null });
-      try {
-        await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
-        const provider = new GoogleAuthProvider();
-        const userCredential = await signInWithPopup(auth, provider);
-        
-        // Store Google user data in Firestore
-        await setDoc(doc(db, 'users', userCredential.user.uid), {
-          email: userCredential.user.email,
-          fullName: userCredential.user.displayName,
-          photoURL: userCredential.user.photoURL,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-        
-        set({ user: userCredential.user, loading: false });
-      } catch (error: any) {
-        set({ error: error.message, loading: false });
-        throw error;
-      }
-    },
-    
     signOut: async () => {
       set({ loading: true, error: null });
       try {
@@ -193,9 +150,84 @@ export const useAuthStore = create<AuthState>((set) => {
         throw error;
       }
     },
-    
+    signInWithGoogle: async () => {
+      set({ loading: true, error: null });
+      try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        
+        // Check if user exists in Firestore
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (!userDoc.exists()) {
+          // Create new user document if it doesn't exist
+          await setDoc(doc(db, 'users', user.uid), {
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } catch (error: any) {
+        set({ error: error.message, loading: false });
+        throw error;
+      }
+    },
+    verifyEmail: async () => {
+      set({ loading: true, error: null });
+      try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('No user logged in');
+        
+        await sendEmailVerification(user);
+        set({ loading: false });
+      } catch (error: any) {
+        set({ error: error.message, loading: false });
+        throw error;
+      }
+    },
+    reloadUser: async () => {
+      set({ loading: true, error: null });
+      try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('No user logged in');
+        
+        await reload(user);
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          set({ 
+            user: { ...user, ...userData },
+            loading: false
+          });
+        }
+      } catch (error: any) {
+        set({ error: error.message, loading: false });
+        throw error;
+      }
+    },
+    sendPasswordResetEmail: async (email: string) => {
+      set({ loading: true, error: null });
+      try {
+        await sendPasswordResetEmail(auth, email);
+        set({ loading: false });
+      } catch (error: any) {
+        set({ error: error.message, loading: false });
+        throw error;
+      }
+    },
+    confirmPasswordReset: async (oobCode: string, newPassword: string) => {
+      set({ loading: true, error: null });
+      try {
+        await confirmPasswordReset(auth, oobCode, newPassword);
+        set({ loading: false });
+      } catch (error: any) {
+        set({ error: error.message, loading: false });
+        throw error;
+      }
+    },
     setUser: (user) => set({ user }),
-
     verifySecurityAnswer: async (userId: string, answer: string) => {
       try {
         const userDoc = await getDoc(doc(db, 'users', userId));
@@ -210,7 +242,6 @@ export const useAuthStore = create<AuthState>((set) => {
         return false;
       }
     },
-
     checkEmailVerification: async () => {
       try {
         const currentUser = auth.currentUser;
@@ -222,7 +253,6 @@ export const useAuthStore = create<AuthState>((set) => {
         throw error;
       }
     },
-
     resendVerificationEmail: async () => {
       try {
         const currentUser = auth.currentUser;
@@ -230,17 +260,6 @@ export const useAuthStore = create<AuthState>((set) => {
         
         await sendEmailVerification(currentUser);
       } catch (error) {
-        throw error;
-      }
-    },
-
-    resetPassword: async (email: string) => {
-      set({ loading: true, error: null });
-      try {
-        await sendPasswordResetEmail(auth, email);
-        set({ loading: false });
-      } catch (error: any) {
-        set({ error: error.message, loading: false });
         throw error;
       }
     }
